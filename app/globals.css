@@ -457,6 +457,9 @@ body::before {
 .info-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 5px; }
 .info-body { font-family: var(--serif); font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
 .info-body code { font-family: var(--mono); font-size: 12px; background: var(--paper-2); padding: 2px 6px; border-radius: 3px; color: var(--ink); }
+.info-modal { width: 560px; max-height: 80vh; overflow-y: auto; }
+.info-phase { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mark-a); margin: 1.4rem 0 0.3rem; }
+.info-phase-desc { font-family: var(--serif); font-size: 14px; font-style: italic; color: var(--ink-3); margin: 0 0 1rem; line-height: 1.55; }
 
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }

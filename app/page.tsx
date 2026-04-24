@@ -661,50 +661,79 @@ export default function Page() {
 
       {infoOpen && (
         <div className="modal-back" onClick={() => setInfoOpen(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>How estimates work</h3>
-            <p style={{ marginBottom: "1rem" }}>
-              Token counts and costs shown before you press <em>run both</em> are local estimates —
-              no API call is made and no key is needed.
+          <div className="modal info-modal" onClick={e => e.stopPropagation()}>
+            <h3>How numbers are calculated</h3>
+
+            <div className="info-phase">Before you run</div>
+            <p className="info-phase-desc">
+              No API call is made. All numbers are computed locally from your prompt text — no key needed.
             </p>
 
             <div className="info-row">
-              <div className="info-label">Input tokens</div>
+              <div className="info-label">Input tokens (est.)</div>
               <div className="info-body">
-                Estimated as <code>max(word_count, chars ÷ 3.8)</code>.
-                Real providers use byte-pair encoding; this approximation is typically within 5–10%.
+                <code>max(word_count, chars ÷ 3.8)</code><br />
+                Real providers tokenise with byte-pair encoding (BPE). This approximation lands within 5–10% for English prose. Code and non-Latin scripts skew higher.
               </div>
             </div>
 
             <div className="info-row">
               <div className="info-label">Output tokens (est.)</div>
               <div className="info-body">
-                Pre-run estimate = <code>max(80, input_tokens × 0.8)</code>.
-                After a run, the actual token count reported by the provider replaces this.
+                <code>max(80, input_tokens × 0.8)</code><br />
+                A rough heuristic — output length varies wildly by prompt. Replaced by the real number once the model replies.
               </div>
             </div>
 
             <div className="info-row">
-              <div className="info-label">Cost</div>
+              <div className="info-label">Cost (est.)</div>
               <div className="info-body">
-                <code>(input_tok ÷ 1M) × in_price + (output_tok ÷ 1M) × out_price</code>.
-                Prices shown are list prices per million tokens and may lag provider changes by a few days.
+                <code>(in_tok ÷ 1 000 000) × in_price + (out_tok ÷ 1 000 000) × out_price</code><br />
+                Prices are list prices per million tokens from the provider&apos;s pricing page. Estimates use the estimated token counts above.
+              </div>
+            </div>
+
+            <div className="info-phase" style={{ marginTop: "1.2rem" }}>After you run</div>
+            <p className="info-phase-desc">
+              Each model streams its reply as Server-Sent Events (SSE). The browser reads them in real time — no server middleman.
+            </p>
+
+            <div className="info-row">
+              <div className="info-label">How streaming works</div>
+              <div className="info-body">
+                The browser opens a streaming HTTP connection directly to the provider (Anthropic, OpenAI, or Google). Text chunks arrive as SSE events and are appended to the output as they land. Both sides stream in parallel.
               </div>
             </div>
 
             <div className="info-row">
-              <div className="info-label">Latency</div>
+              <div className="info-label">Real output tokens</div>
               <div className="info-body">
-                Wall-clock time from the moment the request is sent to when the last streaming chunk
-                arrives. Includes network round-trip and model generation time.
+                Anthropic reports <code>output_tokens</code> in the final <code>message_delta</code> event.<br />
+                OpenAI reports <code>completion_tokens</code> in the last chunk&apos;s <code>usage</code> field.<br />
+                Google reports <code>candidatesTokenCount</code> in <code>usageMetadata</code>.<br />
+                These replace the estimate once the stream ends.
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Real input tokens</div>
+              <div className="info-body">
+                The input token count shown in the column header remains the local estimate — providers report input tokens in some but not all streaming responses. The estimate is close enough for comparison; actual billing uses the provider&apos;s own count.
               </div>
             </div>
 
             <div className="info-row">
               <div className="info-label">Actual cost</div>
               <div className="info-body">
-                Shown in the output header after a run, calculated from the real token counts
-                returned by the provider.
+                Recalculated after the stream ends using the provider-reported output token count and the same estimated input token count:<br />
+                <code>(est_in_tok ÷ 1M) × in_price + (real_out_tok ÷ 1M) × out_price</code>
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Latency</div>
+              <div className="info-body">
+                <code>Date.now()</code> is recorded just before the fetch call and again when the last SSE chunk arrives. The difference is wall-clock time including network round-trip, time-to-first-token, and total generation time.
               </div>
             </div>
 
