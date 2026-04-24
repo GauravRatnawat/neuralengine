@@ -649,7 +649,7 @@ export default function Page() {
             />
             <div className="notice">
               Keys are stored only in this browser&apos;s localStorage and never leave your device.
-              Get a Google AI key at <span style={{ fontFamily: "var(--mono)", fontSize: "0.85em" }}>aistudio.google.com/apikey</span>
+              Get keys at: console.anthropic.com · platform.openai.com/api-keys · aistudio.google.com/apikey
             </div>
             <div className="row">
               <button className="btn" onClick={() => setKeyModalOpen(false)}>cancel</button>
