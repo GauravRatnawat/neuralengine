@@ -141,3 +141,66 @@ export async function runOpenAI(
     return { ok: false, message: e instanceof Error ? e.message : "Unknown error", latencyMs: Date.now() - t0 };
   }
 }
+
+export async function runGoogle(
+  system: string,
+  user: string,
+  model: string,
+  apiKey: string,
+  onChunk: ChunkCb
+): Promise<RunOutcome> {
+  const t0 = Date.now();
+  try {
+    const body: Record<string, unknown> = {
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: 1024 },
+    };
+    if (system) body.systemInstruction = { parts: [{ text: system }] };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      return { ok: false, message: err?.error?.message ?? `HTTP ${res.status}`, latencyMs: Date.now() - t0 };
+    }
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    let outputTokens = 0;
+    let buf = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const ev = JSON.parse(line.slice(6)) as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+            usageMetadata?: { candidatesTokenCount?: number };
+          };
+          const chunk = ev.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (chunk) { fullText += chunk; onChunk(chunk); }
+          if (ev.usageMetadata?.candidatesTokenCount) {
+            outputTokens = ev.usageMetadata.candidatesTokenCount;
+          }
+        } catch {}
+      }
+    }
+
+    return { ok: true, text: fullText, outputTokens, latencyMs: Date.now() - t0 };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Unknown error", latencyMs: Date.now() - t0 };
+  }
+}

@@ -7,7 +7,7 @@ import { estimateTokens, costFor, fmtCost, type Cost } from "@/lib/tokens";
 import { wordDiff } from "@/lib/diff";
 import { parseMarkdown } from "@/lib/markdown";
 import { readShareParam, writeShareHash } from "@/lib/share";
-import { runAnthropic, runOpenAI } from "@/lib/api";
+import { runAnthropic, runOpenAI, runGoogle } from "@/lib/api";
 
 // ─── Seed content ─────────────────────────────────────────────────────────────
 
@@ -375,9 +375,12 @@ export default function Page() {
 
   const [anthropicKey, setAnthropicKeyState] = useState(() => loadKey("ne_ant_key"));
   const [openaiKey, setOpenaiKeyState] = useState(() => loadKey("ne_oai_key"));
+  const [googleKey, setGoogleKeyState] = useState(() => loadKey("ne_goog_key"));
   const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [keyInputA, setKeyInputA] = useState("");
   const [keyInputO, setKeyInputO] = useState("");
+  const [keyInputG, setKeyInputG] = useState("");
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [diffMode, setDiffMode] = useState(false);
@@ -399,7 +402,7 @@ export default function Page() {
   const tokB = estimateTokens(promptBText);
   const costA = costFor(modelA, tokA, Math.max(80, Math.round(tokA * 0.8)));
   const costB = costFor(modelB, tokB, Math.max(80, Math.round(tokB * 0.8)));
-  const apiKeySet = !!anthropicKey || !!openaiKey;
+  const apiKeySet = !!anthropicKey || !!openaiKey || !!googleKey;
   const done = status === "done";
 
   useEffect(() => {
@@ -423,9 +426,11 @@ export default function Page() {
     setDiffMode(false);
   }
 
-  const getKey = useCallback((provider: "anthropic" | "openai") => {
-    return provider === "anthropic" ? anthropicKey : openaiKey;
-  }, [anthropicKey, openaiKey]);
+  const getKey = useCallback((provider: "anthropic" | "openai" | "google") => {
+    if (provider === "anthropic") return anthropicKey;
+    if (provider === "openai") return openaiKey;
+    return googleKey;
+  }, [anthropicKey, openaiKey, googleKey]);
 
   const doRun = useCallback(async () => {
     if (status === "running") return;
@@ -448,7 +453,7 @@ export default function Page() {
       inTok: number,
     ) {
       const key = getKey(mdl.provider);
-      const runner = mdl.provider === "anthropic" ? runAnthropic : runOpenAI;
+      const runner = mdl.provider === "anthropic" ? runAnthropic : mdl.provider === "google" ? runGoogle : runOpenAI;
       const outcome = await runner(sys, usr, mdl.id, key, appendOut);
       setStreaming(false);
       if (outcome.ok) {
@@ -484,8 +489,10 @@ export default function Page() {
   function saveKeys() {
     saveKey("ne_ant_key", keyInputA);
     saveKey("ne_oai_key", keyInputO);
+    saveKey("ne_goog_key", keyInputG);
     setAnthropicKeyState(keyInputA);
     setOpenaiKeyState(keyInputO);
+    setGoogleKeyState(keyInputG);
     setKeyModalOpen(false);
     showToast("keys saved locally");
   }
@@ -526,7 +533,7 @@ export default function Page() {
             <span>share</span>
             <span className="kbd">↗</span>
           </button>
-          <button onClick={() => { setKeyInputA(anthropicKey); setKeyInputO(openaiKey); setKeyModalOpen(true); }}>
+          <button onClick={() => { setKeyInputA(anthropicKey); setKeyInputO(openaiKey); setKeyInputG(googleKey); setKeyModalOpen(true); }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", display: "inline-block", background: apiKeySet ? "var(--mark-b)" : "var(--ink-4)" }} />
             <span>{apiKeySet ? "BYOK" : "add api key"}</span>
           </button>
@@ -553,7 +560,14 @@ export default function Page() {
 
         <div className="spine">
           <div className="spine-crown">
-            <div className="spine-eyebrow">the press</div>
+            <div className="spine-eyebrow">
+            the press
+            <button
+              className="info-btn"
+              onClick={() => setInfoOpen(true)}
+              title="How are estimates calculated?"
+            >?</button>
+          </div>
             <button
               className={`spine-play${status === "running" ? " running" : ""}${done ? " done" : ""}`}
               onClick={doRun}
@@ -626,12 +640,76 @@ export default function Page() {
               value={keyInputO}
               onChange={e => setKeyInputO(e.target.value)}
             />
+            <label>Google AI</label>
+            <input
+              type="password"
+              placeholder="AIza•••"
+              value={keyInputG}
+              onChange={e => setKeyInputG(e.target.value)}
+            />
             <div className="notice">
               Keys are stored only in this browser&apos;s localStorage and never leave your device.
+              Get a Google AI key at <span style={{ fontFamily: "var(--mono)", fontSize: "0.85em" }}>aistudio.google.com/apikey</span>
             </div>
             <div className="row">
               <button className="btn" onClick={() => setKeyModalOpen(false)}>cancel</button>
               <button className="btn primary" onClick={saveKeys}>save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {infoOpen && (
+        <div className="modal-back" onClick={() => setInfoOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>How estimates work</h3>
+            <p style={{ marginBottom: "1rem" }}>
+              Token counts and costs shown before you press <em>run both</em> are local estimates —
+              no API call is made and no key is needed.
+            </p>
+
+            <div className="info-row">
+              <div className="info-label">Input tokens</div>
+              <div className="info-body">
+                Estimated as <code>max(word_count, chars ÷ 3.8)</code>.
+                Real providers use byte-pair encoding; this approximation is typically within 5–10%.
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Output tokens (est.)</div>
+              <div className="info-body">
+                Pre-run estimate = <code>max(80, input_tokens × 0.8)</code>.
+                After a run, the actual token count reported by the provider replaces this.
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Cost</div>
+              <div className="info-body">
+                <code>(input_tok ÷ 1M) × in_price + (output_tok ÷ 1M) × out_price</code>.
+                Prices shown are list prices per million tokens and may lag provider changes by a few days.
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Latency</div>
+              <div className="info-body">
+                Wall-clock time from the moment the request is sent to when the last streaming chunk
+                arrives. Includes network round-trip and model generation time.
+              </div>
+            </div>
+
+            <div className="info-row">
+              <div className="info-label">Actual cost</div>
+              <div className="info-body">
+                Shown in the output header after a run, calculated from the real token counts
+                returned by the provider.
+              </div>
+            </div>
+
+            <div className="row" style={{ marginTop: "1.5rem" }}>
+              <button className="btn primary" onClick={() => setInfoOpen(false)}>got it</button>
             </div>
           </div>
         </div>
