@@ -16,14 +16,7 @@ Compare two LLM prompts side-by-side. See token counts, cost delta, and actual m
 
 ## Models supported
 
-| Model | Provider | Input / 1M | Output / 1M |
-|---|---|---|---|
-| Claude Sonnet 4.5 | Anthropic | $3.00 | $15.00 |
-| Claude Haiku 4.5 | Anthropic | $0.80 | $4.00 |
-| Claude Opus 4.5 | Anthropic | $15.00 | $75.00 |
-| GPT-4o | OpenAI | $2.50 | $10.00 |
-| GPT-4o mini | OpenAI | $0.15 | $0.60 |
-| GPT-4.1 | OpenAI | $2.00 | $8.00 |
+See [model list and prices](lib/models.ts).
 
 ---
 
@@ -49,45 +42,14 @@ Or push to GitHub and import the repo at vercel.com — zero config needed.
 
 ## Updating model pricing
 
-Edit `lib/models.ts`. All pricing lives in one place:
-
-```ts
-"claude-sonnet-4-5": {
-  label: "Claude Sonnet 4.5",
-  provider: "anthropic",
-  inputPer1M: 3.0,   // ← update here
-  outputPer1M: 15.0, // ← update here
-  color: "#e8633a",
-},
-```
+Edit prices in [lib/models.ts](lib/models.ts).
 
 ---
 
 ## Architecture
 
-```
-app/
-  layout.tsx          root layout, fonts, metadata
-  page.tsx            main page — state orchestration
-  globals.css         design tokens, base styles
-
-components/
-  Header.tsx          logo + version
-  KeysRow.tsx         API key inputs (saved to localStorage)
-  ModelSelector.tsx   model toggle buttons
-  PromptEditor.tsx    system + user textarea with token/cost pill
-  CostStrip.tsx       A vs B cost comparison bar
-  ActionsBar.tsx      run / share / clear buttons
-  OutputPanel.tsx     single output display with latency + token count
-  SectionLabel.tsx    reusable section heading
-
-lib/
-  models.ts           model config + pricing table (edit to update prices)
-  tokens.ts           token counting (Claude API + approximation fallback)
-  api.ts              Anthropic + OpenAI API wrappers
-  share.ts            URL state encode/decode for shareable links
-  storage.ts          localStorage helpers for API keys
-```
+[app/page.tsx](app/page.tsx) holds page state and UI. [ModelPicker.tsx](components/ModelPicker.tsx) picks model.
+[lib/](lib/) holds model prices, token math, API calls, diff, text render, and share links.
 
 ---
 
